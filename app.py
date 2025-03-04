@@ -62,6 +62,7 @@ def transcribe(audio_np: np.ndarray) -> str:
     """
     Transcribes the given audio data using the Whisper speech recognition model.
 
+<<<<<<< Updated upstream
     Args:
         audio_np (numpy.ndarray): The audio data to be transcribed.
 
@@ -72,6 +73,8 @@ def transcribe(audio_np: np.ndarray) -> str:
     text = result["text"].strip()
     return text
 
+=======
+>>>>>>> Stashed changes
 #Here we use the pdf one instead
 def get_llm_response(text: str) -> str:
     """
