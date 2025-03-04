@@ -1,3 +1,10 @@
+I changed it. It now runs off python 3.10
+Other than that it is fairly straight forward
+
+
+
+
+
 ## Build your own voice assistant and run it locally: Whisper + Ollama + Bark
 
 > Original article: https://blog.duy-huynh.com/build-your-own-voice-assistant-and-run-it-locally/

@@ -12,7 +12,7 @@ from langchain_community.llms import Ollama
 from tts import TextToSpeechService
 
 console = Console()
-stt = whisper.load_model("base.en")
+stt = whisper.load_model("small")  # Updated model for better accuracy
 tts = TextToSpeechService()
 
 template = """
@@ -30,76 +30,42 @@ PROMPT = PromptTemplate(input_variables=["history", "input"], template=template)
 chain = ConversationChain(
     prompt=PROMPT,
     verbose=False,
-    memory=ConversationBufferMemory(ai_prefix="Assistant:"),
+    memory=ConversationBufferMemory(ai_prefix="Assistant:", return_messages=True),
     llm=Ollama(),
 )
 
 
 def record_audio(stop_event, data_queue):
-    """
-    Captures audio data from the user's microphone and adds it to a queue for further processing.
-
-    Args:
-        stop_event (threading.Event): An event that, when set, signals the function to stop recording.
-        data_queue (queue.Queue): A queue to which the recorded audio data will be added.
-
-    Returns:
-        None
-    """
+    """Captures audio from the microphone and adds it to a queue for processing."""
     def callback(indata, frames, time, status):
         if status:
-            console.print(status)
+            console.print(f"[red]Audio error: {status}")
         data_queue.put(bytes(indata))
 
-    with sd.RawInputStream(
-        samplerate=16000, dtype="int16", channels=1, callback=callback
-    ):
-        while not stop_event.is_set():
-            time.sleep(0.1)
+    try:
+        with sd.RawInputStream(
+            samplerate=16000, dtype="int16", channels=1, callback=callback, blocksize=4096
+        ):
+            while not stop_event.is_set():
+                time.sleep(0.1)
+    except Exception as e:
+        console.print(f"[red]Microphone error: {e}")
 
 
 def transcribe(audio_np: np.ndarray) -> str:
-    """
-    Transcribes the given audio data using the Whisper speech recognition model.
-
-    Args:
-        audio_np (numpy.ndarray): The audio data to be transcribed.
-
-    Returns:
-        str: The transcribed text.
-    """
-    result = stt.transcribe(audio_np, fp16=False)  # Set fp16=True if using a GPU
-    text = result["text"].strip()
-    return text
+    """Transcribes the audio data using Whisper."""
+    result = stt.transcribe(audio_np, fp16=True)  # Use GPU acceleration if available
+    return result["text"].strip()
 
 
 def get_llm_response(text: str) -> str:
-    """
-    Generates a response to the given text using the Llama-2 language model.
-
-    Args:
-        text (str): The input text to be processed.
-
-    Returns:
-        str: The generated response.
-    """
+    """Generates a response using the latest Ollama model."""
     response = chain.predict(input=text)
-    if response.startswith("Assistant:"):
-        response = response[len("Assistant:") :].strip()
-    return response
+    return response.replace("Assistant:", "").strip()
 
 
 def play_audio(sample_rate, audio_array):
-    """
-    Plays the given audio data using the sounddevice library.
-
-    Args:
-        sample_rate (int): The sample rate of the audio data.
-        audio_array (numpy.ndarray): The audio data to be played.
-
-    Returns:
-        None
-    """
+    """Plays the generated audio response."""
     sd.play(audio_array, sample_rate)
     sd.wait()
 
@@ -109,16 +75,11 @@ if __name__ == "__main__":
 
     try:
         while True:
-            console.input(
-                "Press Enter to start recording, then press Enter again to stop."
-            )
+            console.input("Press Enter to start recording, then press Enter again to stop.")
 
-            data_queue = Queue()  # type: ignore[var-annotated]
+            data_queue = Queue()
             stop_event = threading.Event()
-            recording_thread = threading.Thread(
-                target=record_audio,
-                args=(stop_event, data_queue),
-            )
+            recording_thread = threading.Thread(target=record_audio, args=(stop_event, data_queue))
             recording_thread.start()
 
             input()
@@ -126,9 +87,7 @@ if __name__ == "__main__":
             recording_thread.join()
 
             audio_data = b"".join(list(data_queue.queue))
-            audio_np = (
-                np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
-            )
+            audio_np = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
 
             if audio_np.size > 0:
                 with console.status("Transcribing...", spinner="earth"):
@@ -142,11 +101,8 @@ if __name__ == "__main__":
                 console.print(f"[cyan]Assistant: {response}")
                 play_audio(sample_rate, audio_array)
             else:
-                console.print(
-                    "[red]No audio recorded. Please ensure your microphone is working."
-                )
+                console.print("[red]No audio recorded. Please check your microphone settings.")
 
     except KeyboardInterrupt:
         console.print("\n[red]Exiting...")
-
     console.print("[blue]Session ended.")
