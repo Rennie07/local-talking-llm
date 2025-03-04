@@ -72,7 +72,7 @@ def transcribe(audio_np: np.ndarray) -> str:
     text = result["text"].strip()
     return text
 
-
+#Here we use the pdf one instead
 def get_llm_response(text: str) -> str:
     """
     Generates a response to the given text using the Llama-2 language model.
