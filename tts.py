@@ -17,7 +17,7 @@ class TextToSpeechService:
     def __init__(self, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
         """Initializes the TTS model using Suno's Bark."""
         print("[DEBUG] Initializing TextToSpeechService...")
-        self.device = device
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.processor = AutoProcessor.from_pretrained("suno/bark")
         print("[DEBUG] Bark Processor loaded.")
         self.model = BarkModel.from_pretrained("suno/bark")
